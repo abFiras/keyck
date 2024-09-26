@@ -1,0 +1,25 @@
+spring:
+  application:
+    name: service-b
+  datasource:
+    url: jdbc:mysql://localhost:3306/micro1?createDatabaseIfNotExist=true
+    username: root
+    password: ""
+  jpa:
+    hibernate:
+      ddl-auto: update
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.MySQL8Dialect
+    show-sql: true
+
+
+server:
+  port: 8082
+
+eureka:
+  client:
+    service-url:
+      defaultZone: http://localhost:8761/eureka/
+    register-with-eureka: true
+    fetch-registry: true

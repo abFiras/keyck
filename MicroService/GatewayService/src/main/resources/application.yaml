@@ -1,0 +1,56 @@
+server:
+  port: 8083
+
+spring:
+  application:
+    name: gateway-service
+  cloud:
+    gateway:
+      routes:
+        - id: service-a
+          uri: lb://service-a
+          predicates:
+            - Path=/api/**
+          filters:
+            - name: AddRequestHeader
+              args:
+                name: X-Request-Foo
+                value: Bar
+        - id: user
+          uri: lb://user
+          predicates:
+            - Path=/users/**
+          filters:
+            - name: AddRequestHeader
+              args:
+                name: X-Request-Foo
+                value: Bar
+        - id: service-b
+          uri: lb://service-b
+          predicates:
+            - Path=/apir/**
+          filters:
+            - name: AddRequestHeader
+              args:
+                name: X-Request-Foo
+                value: Bar
+      discovery:
+        locator:
+          enabled: true
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          issuer-uri: http://localhost:8180/realms/malek
+          jwk-set-uri: http://localhost:8180/realms/malek/protocol/openid-connect/certs
+
+
+eureka:
+  client:
+    service-url:
+      defaultZone: http://localhost:8761/eureka/
+logging:
+  level:
+    org.springframework.web: DEBUG
+    org.springframework.security: DEBUG
+    org.springframework.cloud.gateway: DEBUG
