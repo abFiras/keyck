@@ -26,6 +26,7 @@ public class SecurityConfig {
                         .pathMatchers(HttpMethod.OPTIONS, "/**").permitAll()
                         .pathMatchers(HttpMethod.POST, "/users/add").permitAll() // Allow access to /users/add without authentication
                         .pathMatchers(HttpMethod.PUT, "/users/{username}/forgetpassowrd").permitAll() // Permet l'accès sans authentification à /users/{username}/forgetpassowrd pour les requêtes PUT
+                        .pathMatchers("/product/addd").hasRole("admin") // Only allow access if the user has the ADMIN role
                         .anyExchange().authenticated()
 
 

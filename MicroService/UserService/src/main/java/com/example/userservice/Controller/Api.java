@@ -4,10 +4,13 @@ import com.example.userservice.Dto.ResetPasswordRequest;
 import com.example.userservice.Dto.UserRegistrationRecord;
 import com.example.userservice.Service.KeycloakUserService;
 import com.example.userservice.exception.UserAlreadyExistsException;
+import io.jsonwebtoken.Claims;
+import io.jsonwebtoken.Jwts;
 import jakarta.ws.rs.Path;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.keycloak.admin.client.Keycloak;
+import org.keycloak.representations.idm.RoleRepresentation;
 import org.keycloak.representations.idm.UserRepresentation;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -23,11 +26,20 @@ import java.util.List;
 @Slf4j
 public class Api {
 
-    private final Keycloak keycloak;
 
     private final KeycloakUserService keycloakUserService;
 
+    @GetMapping("/token")
+    public String getToken() {
+        String accessToken = keycloakUserService.getAccessToken();
 
+        return accessToken;
+    }
+
+    @GetMapping("/{accessToken}")
+    public String getUserId(@PathVariable("accessToken") String accessToken) {
+        return keycloakUserService.getUserIdFromToken(accessToken);
+    }
     @PostMapping("/add")
     public ResponseEntity<?> createUser(@RequestBody UserRegistrationRecord userRegistrationRecord) {
         try {
@@ -40,12 +52,37 @@ public class Api {
         }
     }
 
+    @GetMapping("/{userId}/roles")
+    public ResponseEntity<?> getUserRoles(@PathVariable String userId) {
+        try {
+            List<RoleRepresentation> roles = keycloakUserService.getUserRoles(userId);
+            return ResponseEntity.ok(roles);
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("An error occurred: " + e.getMessage());
+        }
+    }
+    @GetMapping("/{userId}/isadmin")
+    public Boolean isAdmin(@PathVariable String userId) {
+        return keycloakUserService.isAdmin(userId);
+
+    }
+
+    @GetMapping("/{userId}/username")
+    public ResponseEntity<String> getUsername(@PathVariable String userId) {
+        try {
+            String username = keycloakUserService.getUsernameByUserId(userId);
+            return ResponseEntity.ok(username);
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body("User not found: " + e.getMessage());
+        }
+    }
 
     @GetMapping
     public UserRepresentation getUser(Principal principal) {
 
         return keycloakUserService.getUserById(principal.getName());
     }
+
 
     @DeleteMapping("/{userId}")
     public void deleteUserById(@PathVariable String userId) {

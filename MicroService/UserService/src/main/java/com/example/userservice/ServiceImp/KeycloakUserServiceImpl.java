@@ -4,6 +4,8 @@ import com.example.userservice.Repository.UserRepo;
 import com.example.userservice.Service.KeycloakUserService;
 
 import com.example.userservice.exception.UserAlreadyExistsException;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.ws.rs.NotFoundException;
 import jakarta.ws.rs.core.Response;
 import lombok.RequiredArgsConstructor;
@@ -13,31 +15,82 @@ import org.keycloak.admin.client.Keycloak;
 import org.keycloak.admin.client.KeycloakBuilder;
 import org.keycloak.admin.client.resource.*;
 import org.keycloak.representations.idm.CredentialRepresentation;
+import org.keycloak.representations.idm.RoleRepresentation;
 import org.keycloak.representations.idm.UserRepresentation;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpMethod;
+import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.util.CollectionUtils;
 import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.client.RestTemplate;
 
 import java.util.*;
 
-@RequiredArgsConstructor
+
 @Service
 public class KeycloakUserServiceImpl implements KeycloakUserService {
-    @Autowired
-    private UserRepo userRepository;
     private final Keycloak keycloak;
-
     @Value("${keycloak.realm}")
     private String realm;
 
+    public KeycloakUserServiceImpl(Keycloak keycloak) {
+        this.keycloak = keycloak;
+    }
 
         private static final Logger log = LoggerFactory.getLogger(KeycloakUserServiceImpl.class);
 
-        @Override
+    @Value("${keycloak.urls.auth}")
+    private String keycloakAuthServerUrl;
+
+
+    @Override
+    public String getUserIdFromToken(String accessToken) {
+        // Créer une instance de RestTemplate pour effectuer des requêtes HTTP
+        RestTemplate restTemplate = new RestTemplate();
+
+        // URL de l'API /userinfo de Keycloak
+        String userInfoUrl = keycloakAuthServerUrl + "/realms/" + realm + "/protocol/openid-connect/userinfo";
+
+        // Créer les en-têtes HTTP, en ajoutant le token d'accès dans l'en-tête Authorization
+        HttpHeaders headers = new HttpHeaders();
+        headers.set("Authorization", "Bearer " + accessToken);
+
+        // Créer une requête GET pour l'API userinfo
+        ResponseEntity<String> response = null;
+        try {
+            // Utilisation correcte de RestTemplate.exchange
+            response = restTemplate.exchange(
+                    userInfoUrl, // URL de l'API
+                    HttpMethod.GET, // Type de la requête (GET)
+                    new org.springframework.http.HttpEntity<>(headers), // Entité avec les en-têtes
+                    String.class); // Type de la réponse attendu
+        } catch (Exception e) {
+            throw new RuntimeException("Erreur lors de l'appel à l'API Keycloak /userinfo", e);
+        }
+
+        // Extraire l'ID utilisateur (souvent dans le champ "sub" dans la réponse JSON)
+        String responseBody = response.getBody();
+        // Extraire l'ID utilisateur du JSON
+        String userId = extractUserIdFromJson(responseBody);
+        return userId;
+    }
+
+    // Méthode pour extraire l'ID utilisateur du corps de la réponse JSON
+    private String extractUserIdFromJson(String jsonResponse) {
+        // Utiliser Jackson pour analyser la réponse JSON
+        try {
+            ObjectMapper objectMapper = new ObjectMapper();
+            JsonNode jsonNode = objectMapper.readTree(jsonResponse);
+            return jsonNode.get("sub").asText(); // Le champ "sub" contient l'ID utilisateur
+        } catch (Exception e) {
+            throw new RuntimeException("Erreur lors de l'extraction de l'ID utilisateur depuis le JSON", e);
+        }
+    }        @Override
         public UserRegistrationRecord createUser(UserRegistrationRecord userRegistrationRecord) {
             try {
                 UserRepresentation user = new UserRepresentation();
@@ -89,7 +142,32 @@ public class KeycloakUserServiceImpl implements KeycloakUserService {
 
 //        response.readEntity()
 
+    @Override
+    public List<RoleRepresentation> getUserRoles(String userId) {
+        RealmResource realmResource = keycloak.realm(realm);
+        UserResource userResource = realmResource.users().get(userId.toString());
+        return userResource.roles().realmLevel().listAll();
+    }
+    @Override
+    public Boolean isAdmin(String userId){
+            List<RoleRepresentation> Roles= getUserRoles(userId);
+            for (RoleRepresentation  role:Roles){
+                if("admin".equals(role.getName())){
+                    return true;
+                }
 
+            }
+            return false;
+    }
+    @Override
+    public String getUsernameByUserId(String userId) {
+        try {
+            UserRepresentation user = keycloak.realm(realm).users().get(userId).toRepresentation();
+            return user.getUsername();
+        } catch (NotFoundException e) {
+            throw new RuntimeException("User not found for ID: " + userId);
+        }
+    }
 
     private UsersResource getUsersResource() {
         RealmResource realm1 = keycloak.realm(realm);
@@ -100,6 +178,8 @@ public class KeycloakUserServiceImpl implements KeycloakUserService {
     public UserRepresentation getUserById(String userId) {
         return getUsersResource().get(userId).toRepresentation();
     }
+
+
 
     @Override
     public void deleteUserById(String userId) {
@@ -200,5 +280,13 @@ public class KeycloakUserServiceImpl implements KeycloakUserService {
 
     }
 
+    @Override
+    public String getAccessToken() {
+        try {
+            return keycloak.tokenManager().getAccessToken().getToken();
+        } catch (Exception e) {
+            throw new RuntimeException("Failed to fetch access token: " + e.getMessage(), e);
+        }
+    }
 
 }

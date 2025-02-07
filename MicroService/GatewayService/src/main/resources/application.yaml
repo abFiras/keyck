@@ -7,26 +7,44 @@ spring:
   cloud:
     gateway:
       routes:
+
         - id: service-a
-          uri: lb://service-a
+          uri: http://localhost:8091
           predicates:
             - Path=/api/**
           filters:
-            - name: AddRequestHeader
-              args:
-                name: X-Request-Foo
-                value: Bar
+            - StripPrefix=1  # Supprime "/annonce" avant de rediriger
+
+        - id: annonce
+          uri: http://localhost:8017
+          predicates:
+            - Path=/annonce/**
+          filters:
+            - StripPrefix=1  # Supprime "/annonce" avant de rediriger
+
+        - id: commande
+          uri: http://localhost:8089
+          predicates:
+            - Path=/commande/**
+          filters:
+            - StripPrefix=1  # Supprime "/annonce" avant de rediriger
+
         - id: user
           uri: lb://user
           predicates:
-            - Path=/users/**
+            - Path=/user/**
           filters:
-            - name: AddRequestHeader
-              args:
-                name: X-Request-Foo
-                value: Bar
+            - StripPrefix=1  # Supprime "/annonce" avant de rediriger
+
+        - id: notification
+          uri: http://localhost:8091  # Le service de notification écoute sur ce port
+          predicates:
+            - Path=/ws/**  # Route WebSocket
+          filters:
+            - StripPrefix=1  # Supprime "/annonce" avant de rediriger
+
         - id: service-b
-          uri: lb://service-b
+          uri: http://localhost:8082
           predicates:
             - Path=/apir/**
           filters:
@@ -34,6 +52,7 @@ spring:
               args:
                 name: X-Request-Foo
                 value: Bar
+
       discovery:
         locator:
           enabled: true
