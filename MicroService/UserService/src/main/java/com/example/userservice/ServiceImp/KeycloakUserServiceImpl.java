@@ -90,7 +90,7 @@ public class KeycloakUserServiceImpl implements KeycloakUserService {
         } catch (Exception e) {
             throw new RuntimeException("Erreur lors de l'extraction de l'ID utilisateur depuis le JSON", e);
         }
-    }        @Override
+    }      /*  @Override
         public UserRegistrationRecord createUser(UserRegistrationRecord userRegistrationRecord) {
             try {
                 UserRepresentation user = new UserRepresentation();
@@ -139,9 +139,68 @@ public class KeycloakUserServiceImpl implements KeycloakUserService {
             }
 
             }
-
+*/
 //        response.readEntity()
+@Override
+public UserRegistrationRecord createUser(UserRegistrationRecord userRegistrationRecord) {
+    try {
+        // Création de l'utilisateur dans Keycloak
+        UserRepresentation user = new UserRepresentation();
+        user.setEnabled(true);
+        user.setUsername(userRegistrationRecord.getUsername());
+        user.setEmail(userRegistrationRecord.getEmail());
+        user.setFirstName(userRegistrationRecord.getFirstName());
+        user.setLastName(userRegistrationRecord.getLastName());
+        user.setEmailVerified(false);
 
+        CredentialRepresentation credentialRepresentation = new CredentialRepresentation();
+        credentialRepresentation.setValue(userRegistrationRecord.getPassword());
+        credentialRepresentation.setTemporary(false);
+        credentialRepresentation.setType(CredentialRepresentation.PASSWORD);
+
+        List<CredentialRepresentation> list = new ArrayList<>();
+        list.add(credentialRepresentation);
+        user.setCredentials(list);
+
+        UsersResource usersResource = getUsersResource();
+        Response response = usersResource.create(user);
+        log.info("Keycloak create user response: " + response.getStatus());
+
+        if (response.getStatus() == 201) {
+            log.info("User created successfully in Keycloak.");
+
+            // Récupérer l'utilisateur créé
+            List<UserRepresentation> representationList = usersResource.searchByUsername(userRegistrationRecord.getUsername(), true);
+            if (!CollectionUtils.isEmpty(representationList)) {
+                UserRepresentation createdUser = representationList.stream()
+                        .filter(u -> u.getUsername().equals(userRegistrationRecord.getUsername()))
+                        .findFirst().orElse(null);
+
+                if (createdUser != null) {
+                    // Récupérer le rôle de l'utilisateur à partir du token (resource_access)
+                    List<String> roles = getRolesFromResourceAccess(userRegistrationRecord.getRole());
+
+                    // Ajouter le rôle à l'utilisateur
+                    addRoleToUser(createdUser.getId(), roles);
+
+                    // Envoi de l'email pour vérifier l'adresse
+                    if (!createdUser.isEmailVerified()) {
+                        emailVerification(createdUser.getId());
+                        log.info("Email sent to user id {}", createdUser.getId());
+                    }
+                }
+            }
+            return userRegistrationRecord;
+        } else if (response.getStatus() == 409) {
+            throw new UserAlreadyExistsException("User or email already exists");
+        } else {
+            log.error("Failed to create user in Keycloak. Status: " + response.getStatus() + ", Message: " + response.readEntity(String.class));
+            return null;
+        }
+    } catch (Exception e) {
+        throw new UserAlreadyExistsException("User or email already exists");
+    }
+}
     @Override
     public List<RoleRepresentation> getUserRoles(String userId) {
         RealmResource realmResource = keycloak.realm(realm);
@@ -159,6 +218,49 @@ public class KeycloakUserServiceImpl implements KeycloakUserService {
             }
             return false;
     }
+    private List<String> getRolesFromResourceAccess(String roleName) {
+        // Dans ce cas, récupérer les rôles d'un client spécifique à partir de resource_access dans le token
+        List<String> roles = new ArrayList<>();
+        // Exemple d'un rôle spécifique à un client (clientId '123')
+        if ("123".equals(roleName)) {
+            // Récupérer les rôles associés à ce client dans resource_access
+            roles.add("proprietaire");
+            roles.add("malek");
+            roles.add("admin");
+        }
+        return roles;
+    }
+
+    private void addRoleToUser(String userId, List<String> roles) {
+        // Récupérer les rôles depuis Keycloak
+        for (String roleName : roles) {
+            RoleRepresentation role = getRoleRepresentation(roleName);
+            if (role != null) {
+                // Ajouter le rôle à l'utilisateur
+                UsersResource usersResource = getUsersResource();
+                usersResource.get(userId).roles().realmLevel().add(Arrays.asList(role));
+                log.info("Role {} added to user {}", roleName, userId);
+            } else {
+                log.error("Role {} not found in Keycloak", roleName);
+            }
+        }
+    }
+
+    private RoleRepresentation getRoleRepresentation(String roleName) {
+        // Récupérer le rôle à partir du nom dans le royaume Keycloak
+        RolesResource rolesResource = getRealmResource().roles();
+        RoleRepresentation role = null;
+        try {
+            role = rolesResource.get(roleName).toRepresentation();
+        } catch (NotFoundException e) {
+            log.error("Role {} not found in Keycloak", roleName);
+        }
+        return role;
+    }
+    private RealmResource getRealmResource() {
+        return keycloak.realm("malek"); // Remplace "your-realm-name" par le nom réel de ton realm Keycloak
+    }
+
     @Override
     public String getUsernameByUserId(String userId) {
         try {

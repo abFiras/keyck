@@ -7,41 +7,42 @@ spring:
   cloud:
     gateway:
       routes:
-
         - id: service-a
           uri: http://localhost:8091
           predicates:
             - Path=/api/**
           filters:
-            - StripPrefix=1  # Supprime "/annonce" avant de rediriger
+            - StripPrefix=1
 
         - id: annonce
           uri: http://localhost:8017
           predicates:
             - Path=/annonce/**
           filters:
-            - StripPrefix=1  # Supprime "/annonce" avant de rediriger
+            - StripPrefix=1
 
         - id: commande
           uri: http://localhost:8089
           predicates:
             - Path=/commande/**
           filters:
-            - StripPrefix=1  # Supprime "/annonce" avant de rediriger
+            - StripPrefix=1
 
         - id: user
-          uri: lb://user
+          uri: http://localhost:8088
           predicates:
             - Path=/user/**
           filters:
-            - StripPrefix=1  # Supprime "/annonce" avant de rediriger
+            - StripPrefix=1
 
         - id: notification
-          uri: http://localhost:8091  # Le service de notification écoute sur ce port
+          uri: ws://localhost:8091  # Assurez-vous d'utiliser `ws://` pour WebSocket
           predicates:
-            - Path=/ws/**  # Route WebSocket
+            - Path=/ws/**
           filters:
-            - StripPrefix=1  # Supprime "/annonce" avant de rediriger
+            - StripPrefix=1
+            - AddRequestHeader=Upgrade, websocket  # Ajoutez cet en-tête pour forcer l'upgrade
+            - AddRequestHeader=Connection, Upgrade
 
         - id: service-b
           uri: http://localhost:8082
@@ -53,9 +54,8 @@ spring:
                 name: X-Request-Foo
                 value: Bar
 
-      discovery:
-        locator:
-          enabled: true
+
+
   security:
     oauth2:
       resourceserver:
@@ -63,11 +63,11 @@ spring:
           issuer-uri: http://localhost:8180/realms/malek
           jwk-set-uri: http://localhost:8180/realms/malek/protocol/openid-connect/certs
 
-
 eureka:
   client:
     service-url:
       defaultZone: http://localhost:8761/eureka/
+
 logging:
   level:
     org.springframework.web: DEBUG

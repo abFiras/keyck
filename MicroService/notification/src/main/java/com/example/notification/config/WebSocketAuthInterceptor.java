@@ -31,4 +31,5 @@ public class WebSocketAuthInterceptor implements ChannelInterceptor {
         // Logique de validation du token JWT
         return true; // Changez avec votre implémentation réelle
     }
+
 }

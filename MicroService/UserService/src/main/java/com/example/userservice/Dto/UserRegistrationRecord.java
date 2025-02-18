@@ -20,6 +20,6 @@ public class UserRegistrationRecord{
     String firstName;
     String lastName;
     String password;
-
+    String role;
 }
 

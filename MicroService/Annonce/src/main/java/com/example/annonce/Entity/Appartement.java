@@ -29,6 +29,8 @@ import java.util.Set;
         private String description;
         private float montantContrubition;
         private int nbrPersonne;
+        @OneToMany
+        private Set<Reservation> reservations;
     private String userId; // ID de l'utilisateur provenant du microservice User
 
     public Set<ImageModel> getImageModels() {
@@ -142,6 +144,14 @@ import java.util.Set;
     // Getter and Setter for userId
     public String getUserId() {
         return userId;
+    }
+
+    public Set<Reservation> getReservations() {
+        return reservations;
+    }
+
+    public void setReservations(Set<Reservation> reservations) {
+        this.reservations = reservations;
     }
 
     public void setUserId(String userId) {

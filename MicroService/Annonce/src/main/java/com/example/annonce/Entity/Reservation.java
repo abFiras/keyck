@@ -15,13 +15,13 @@ public class Reservation {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    private Long clientId;
-    private Long apartmentId;
-    private Long annonceurId;
-
+    private String clientId;
+    private int apartmentId;
     private LocalDate startDate;
     private LocalDate endDate;
     private Double totalPrice;
+    @ManyToOne
+    private Appartement appartement;
 
     @Enumerated(EnumType.STRING)
     private ReservationStatus status; // PENDING, ACCEPTED, REJECTED
@@ -34,30 +34,30 @@ public class Reservation {
     public void setId(Long id) {
         this.id = id;
     }
+    public Appartement getAppartement() {
+        return appartement;
+    }
 
-    public Long getClientId() {
+    public void setAppartement(Appartement appartement) {
+        this.appartement = appartement;
+    }
+
+    public String getClientId() {
         return clientId;
     }
 
-    public void setClientId(Long clientId) {
+    public void setClientId(String clientId) {
         this.clientId = clientId;
     }
 
-    public Long getApartmentId() {
+    public int getApartmentId() {
         return apartmentId;
     }
 
-    public void setApartmentId(Long apartmentId) {
+    public void setApartmentId(int apartmentId) {
         this.apartmentId = apartmentId;
     }
 
-    public Long getAnnonceurId() {
-        return annonceurId;
-    }
-
-    public void setAnnonceurId(Long annonceurId) {
-        this.annonceurId = annonceurId;
-    }
 
     public LocalDate getStartDate() {
         return startDate;
