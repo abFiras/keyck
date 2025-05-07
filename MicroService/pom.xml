@@ -46,6 +46,11 @@
         </dependency>
     </dependencies>
 
+    <modules>
+        <module>DiscoveryService</module>
+        <module>GatewayService</module>
+        <module>UserService</module>
+    </modules>
     <build>
         <plugins>
             <plugin>
